@@ -1,0 +1,7 @@
+BUILD/*
+BUILDROOT/*
+RPMS/*
+SRPMS/*
+SOURCES/live_process_tracker 
+SOURCES/cgrules
+

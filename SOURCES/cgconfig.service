@@ -1,0 +1,12 @@
+[Unit]
+Description=cgconfig service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+ExecStart=/etc/systemd/slice_creator.sh
+
+[Install]
+WantedBy=multi-user.target

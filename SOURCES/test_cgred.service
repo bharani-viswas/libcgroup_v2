@@ -1,0 +1,11 @@
+[Unit]
+Description=Cgroups service
+After=network.target cgconfig.service 
+
+[Service]
+Type=simple
+User=root
+ExecStart=/etc/systemd/live_process_tracker
+
+[Install]
+WantedBy=multi-user.target
