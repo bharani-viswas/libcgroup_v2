@@ -1,0 +1,15 @@
+[Unit]
+##The service starts with system boot hence reads Configuration file cgsliceconfig.conf and updates slices
+##And their configurations
+Description= Cgroups config parser Service
+Before=slices.target
+Requires=-.slice
+After=-.slice
+
+[Service]
+Type=simple
+ExecStart=/etc/cgconfigparser
+
+[Install]
+WantedBy=multi-user.target
+

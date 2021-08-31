@@ -1,0 +1,95 @@
+#!/usr/bin/python3 -u 
+######################
+# **************************************************************************************
+# Copyright (c) 2021 General Electric Medical Systems, All rights reserved.
+# **************************************************************************************
+#   cgconfig file.
+# **************************************************************************************
+#
+# DESCRIPTION
+#  	cgconfig : Responsible For Parsing and Deploying Slice Configurations in the system
+#		   Can be used to Dynamically Update Slice Configuration as well with out reboot
+#
+# DESIGN DOCUMENTS
+# REV    DATE           BY               	SPR/US        REMARKS
+# 1.0    29th Jun 21    Bharani viswas     	US659732   	Initial Version
+# 2.0	 12th July 21	Bharani viswas		US595016	Updated to accommodate default slice configuration
+# ***************************************************************************************
+
+
+import yaml
+import re
+from enum import Enum
+import subprocess
+
+CONFIG_FILE="/etc/cgsliceconfig.conf"
+PC_TYPE_BINARY="/export/home/sdc/senovision/scripts/SUIFCheckIfDualPcConfig.sh"
+PC_TYPE=Enum('PC_TYPE','SINGLE_PC AXIS_PC RECON_PC', start=0)
+SLICE_CONFIG_FILE='/usr/lib/systemd/system/slices.target'
+SYSTEMD_OVERRIDE_PATH='/etc/systemd/system/'
+
+def slice_creation(slices):
+    slice_list = ""
+    system_slices=["-.slice","system.slice","user.slice"]
+    for slice in slices:
+        if slice not in system_slices:
+                 slice_list = slice_list + " " +slice
+    command="sed -i 's/^Wants\=.*/Wants\=\-\.slice system\.slice/' {0}".format(SLICE_CONFIG_FILE)
+    subprocess.call(command,shell=True)
+    command = 'sed -i "/Wants=/s/$/ {0}/" {1}'.format(slice_list,SLICE_CONFIG_FILE)
+    subprocess.call(command,shell=True)
+    return slice_list.split()
+ 
+
+def slice_configuration(slices):
+    if slices:
+        suffix='.d'
+        command=''
+        slice_path=dict()
+        print(slices)
+        for slice in slices:
+            dir="{0}.d".format(slice)
+            slice_path[slice] = "{0}{1}".format(SYSTEMD_OVERRIDE_PATH,dir)
+            command = command + "mkdir -p {0}{1};".format(SYSTEMD_OVERRIDE_PATH,dir)
+        subprocess.call(command,shell=True)
+        return slice_path
+
+def configuration_update(conf_file,slice_parameters):
+    if conf_file and slice_parameters:
+        with open(conf_file,'w') as _file:
+            _file.write('[Slice]\n')
+            for key in slice_parameters:
+                _file.write(str(key)+" = "+str(slice_parameters[key])+"\n")
+
+
+
+
+
+
+
+########MAIN###########
+
+with open(PC_TYPE_BINARY,'rb') as file:
+    script = file.read()
+    rc = subprocess.call(script, shell=True)
+    status=int(rc)
+
+status_range = [status.value for status in PC_TYPE] 
+
+if status in status_range:
+    PC_TYPE=PC_TYPE(status).name
+    with open(CONFIG_FILE, "r") as yamlfile:
+        data = yaml.load(yamlfile, Loader=yaml.FullLoader)
+        config = data[PC_TYPE]
+        slices=config.keys()
+        slice_list=slice_creation(slices)
+        if slice_list:
+            slice_path=slice_configuration(slices)
+            for keys in slice_path.keys():
+                conf_file = "{0}/slice.conf".format(slice_path[keys])
+                slice_parameters=config[keys]
+                status=configuration_update(conf_file,slice_parameters)
+                print("Configuration Updated in "+ conf_file)
+        command="systemctl daemon-reload"
+        subprocess.call(command, shell=True)
+
